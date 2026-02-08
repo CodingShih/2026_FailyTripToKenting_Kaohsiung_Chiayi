@@ -55,7 +55,8 @@
             background: white;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-            transition: transform 0.1s active;
+            /* transition: transform 0.1s active; */
+            transition: transform 0.1s ease;
         }
         .card:active {
             transform: scale(0.99);
@@ -107,8 +108,15 @@
     <!-- Header -->
     <header class="bg-white px-4 py-3 shadow-sm z-20 flex justify-between items-center shrink-0">
         <h1 class="text-lg font-bold tracking-wider text-muji-dark">CNY TRIP <span class="text-xs font-normal text-muji-sub ml-1">2026</span></h1>
-        <div class="text-xs text-muji-sub bg-gray-100 px-2 py-1 rounded-full">
+        
+        <div class="flex items-center gap-2">
+          <span id="cloud-status" class="text-[11px] px-2 py-1 rounded-full bg-gray-100 text-muji-sub">
+            <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> 連線中
+          </span>
+        
+          <div class="text-xs text-muji-sub bg-gray-100 px-2 py-1 rounded-full">
             <i class="fa-solid fa-car mr-1"></i> 南部自駕
+          </div>
         </div>
     </header>
 
@@ -118,7 +126,7 @@
     </main>
 
     <!-- Bottom Navigation -->
-    <nav class="bg-white border-t border-gray-100 fixed bottom-0 w-full pb-safe z-30 shadow-[0_-2px_10px_rgba(0,0,0,0.03)]">
+    <nav class="bg-white border-t border-gray-100 fixed bottom-0 w-full pb-safe z-30 shadow-[0_-2px_10px_rgba(0,0,0,0.03)]" style="padding-bottom: env(safe-area-inset-bottom);">
         <div class="flex justify-around items-center h-16 pb-1">
             <button onclick="switchTab('plan')" class="nav-item flex flex-col items-center justify-center w-full h-full active" id="nav-plan">
                 <i class="fa-solid fa-calendar-day text-lg mb-1"></i>
@@ -154,9 +162,15 @@
         const DB_KEY_WALLET = 'cny_trip_wallet_v2';
         const DB_KEY_LISTS = 'cny_trip_lists_v2';
         const DB_KEY_FOOD = 'cny_trip_food_v2';
+        
+        window.DB_KEY_PLAN = DB_KEY_PLAN;
+        window.DB_KEY_WALLET = DB_KEY_WALLET;
+        window.DB_KEY_LISTS = DB_KEY_LISTS;
+        window.DB_KEY_FOOD = DB_KEY_FOOD;
 
         let currentTab = 'plan';
-        let tripData = {
+        // let window.tripData = {
+        window.tripData = {
             plan: [],
             wallet: { entries: [], currency: 'TWD', rate: 1 },
             lists: {
@@ -249,37 +263,49 @@
             // Load Plan
             const savedPlan = localStorage.getItem(DB_KEY_PLAN);
             if (savedPlan) {
-                tripData.plan = JSON.parse(savedPlan);
+                window.tripData.plan = JSON.parse(savedPlan);
             } else {
-                tripData.plan = JSON.parse(JSON.stringify(defaultPlan));
+                window.tripData.plan = JSON.parse(JSON.stringify(defaultPlan));
                 saveData('plan');
             }
 
             // Load Other Data
             const savedWallet = localStorage.getItem(DB_KEY_WALLET);
-            if (savedWallet) tripData.wallet = JSON.parse(savedWallet);
+            if (savedWallet) window.tripData.wallet = JSON.parse(savedWallet);
             
             const savedLists = localStorage.getItem(DB_KEY_LISTS);
-            if (savedLists) tripData.lists = JSON.parse(savedLists);
+            if (savedLists) window.tripData.lists = JSON.parse(savedLists);
 
             const savedFood = localStorage.getItem(DB_KEY_FOOD);
-            if (savedFood) tripData.food = JSON.parse(savedFood);
+            if (savedFood) window.tripData.food = JSON.parse(savedFood);
 
             renderView();
         }
 
+        let cloudSyncTimer = null;
+
+        function requestCloudSync() {
+          if (!window.__pushTripToCloud) return;
+          clearTimeout(cloudSyncTimer);
+          cloudSyncTimer = setTimeout(() => window.__pushTripToCloud(), 500);
+        }
+
         function saveData(type) {
-            if (type === 'plan') localStorage.setItem(DB_KEY_PLAN, JSON.stringify(tripData.plan));
-            if (type === 'wallet') localStorage.setItem(DB_KEY_WALLET, JSON.stringify(tripData.wallet));
-            if (type === 'lists') localStorage.setItem(DB_KEY_LISTS, JSON.stringify(tripData.lists));
-            if (type === 'food') localStorage.setItem(DB_KEY_FOOD, JSON.stringify(tripData.food));
+            if (type === 'plan') localStorage.setItem(window.DB_KEY_PLAN, JSON.stringify(window.tripData.plan));
+            if (type === 'wallet') localStorage.setItem(window.DB_KEY_WALLET, JSON.stringify(window.tripData.wallet));
+            if (type === 'lists') localStorage.setItem(window.DB_KEY_LISTS, JSON.stringify(window.tripData.lists));
+            if (type === 'food') localStorage.setItem(window.DB_KEY_FOOD, JSON.stringify(window.tripData.food));
+            // if (window.__pushTripToCloud) window.__pushTripToCloud();
+
+            if (window.__pushTripToCloud) requestCloudSync();
         }
 
         function switchTab(tab) {
             currentTab = tab;
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById(`nav-${tab}`).classList.add('active');
-            window.scrollTo(0, 0);
+            // window.scrollTo(0, 0);
+            document.getElementById('app-content').scrollTop = 0;
             renderView();
         }
 
@@ -296,12 +322,13 @@
                 case 'info': renderInfo(container); break;
             }
         }
+        window.renderView = renderView;
 
         // --- 1. PLAN MODULE ---
         function renderPlan(container) {
             let html = `<div class="pb-2">`;
             
-            tripData.plan.forEach((day, dayIndex) => {
+            window.tripData.plan.forEach((day, dayIndex) => {
                 html += `
                     <div class="mb-8">
                         <div class="flex items-center mb-4 sticky top-0 bg-[#F7F7F7] z-10 py-2">
@@ -358,7 +385,7 @@
         }
 
         function togglePlanItem(dIdx, iIdx) {
-            tripData.plan[dIdx].items[iIdx].done = !tripData.plan[dIdx].items[iIdx].done;
+            window.tripData.plan[dIdx].items[iIdx].done = !window.tripData.plan[dIdx].items[iIdx].done;
             saveData('plan');
             renderView();
         }
@@ -412,10 +439,10 @@
                 <div id="food-list" class="space-y-3">
             `;
 
-            if(tripData.food.length === 0) {
+            if(window.tripData.food.length === 0) {
                 html += `<div class="text-center text-gray-400 py-10">尚無美食資料，點擊右上角新增</div>`;
             } else {
-                tripData.food.forEach((item, idx) => {
+                window.tripData.food.forEach((item, idx) => {
                     if (window.foodFilter && !checkFoodFilter(item, window.foodFilter)) return;
                     
                     const eatenStyle = item.eaten ? 'opacity-60 bg-gray-50' : 'bg-white';
@@ -471,7 +498,7 @@
 
         // --- 4. WALLET MODULE ---
         function renderWallet(container) {
-            const total = tripData.wallet.entries.reduce((sum, item) => sum + parseInt(item.amount), 0);
+            const total = window.tripData.wallet.entries.reduce((sum, item) => sum + parseInt(item.amount), 0);
             
             let html = `
                 <div class="card p-4 mb-4 bg-stone-700 text-white shadow-lg">
@@ -522,8 +549,8 @@
                 <div class="space-y-3 pb-4">
             `;
 
-            [...tripData.wallet.entries].reverse().forEach((item, idx) => {
-                const realIdx = tripData.wallet.entries.length - 1 - idx;
+            [...window.tripData.wallet.entries].reverse().forEach((item, idx) => {
+                const realIdx = window.tripData.wallet.entries.length - 1 - idx;
                 html += `
                     <div class="card p-3 flex items-center gap-3">
                         <div class="w-12 h-12 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center">
@@ -548,6 +575,21 @@
             container.innerHTML = html;
         }
 
+        function escapeHtml(str) {
+          return str.replace(/[&<>"']/g, (m) => ({
+            "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+          }[m]));
+        }
+        
+        function linkifySafe(str) {
+          const escaped = escapeHtml(str);
+          return escaped.replace(/(https?:\/\/[^\s]+)/g,
+            `<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline">
+              <i class="fa-solid fa-link"></i> 連結
+             </a>`
+          );
+        }
+        
         // --- 5. LISTS MODULE ---
         function renderLists(container) {
             let html = `
@@ -555,12 +597,12 @@
                 <div class="card p-4 mb-4">
                     <div class="flex justify-between items-center mb-3">
                         <h3 class="font-bold text-muji-dark"><i class="fa-solid fa-suitcase-rolling mr-2 text-muji-accent"></i>行前準備</h3>
-                        <span class="text-xs text-gray-400">${tripData.lists.checklist.filter(i=>i.done).length}/${tripData.lists.checklist.length}</span>
+                        <span class="text-xs text-gray-400">${window.tripData.lists.checklist.filter(i=>i.done).length}/${window.tripData.lists.checklist.length}</span>
                     </div>
                     <div class="space-y-2">
             `;
             
-            tripData.lists.checklist.forEach((item, idx) => {
+            window.tripData.lists.checklist.forEach((item, idx) => {
                 const check = item.done ? 'fa-square-check text-stone-600' : 'fa-square text-gray-200';
                 const textStyle = item.done ? 'line-through text-gray-400' : '';
                 html += `
@@ -588,10 +630,11 @@
                     <div class="space-y-3">
             `;
             
-            [...tripData.lists.notes].reverse().forEach((note, idx) => {
+            [...window.tripData.lists.notes].reverse().forEach((note, idx) => {
                 // Auto link regex
-                const linkedText = note.text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-500 underline"><i class="fa-solid fa-link"></i> 連結</a>');
-                const realIdx = tripData.lists.notes.length - 1 - idx;
+                // const linkedText = note.text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-500 underline"><i class="fa-solid fa-link"></i> 連結</a>');
+                const linkedText = linkifySafe(note.text);
+                const realIdx = window.tripData.lists.notes.length - 1 - idx;
                 
                 html += `
                     <div class="bg-gray-50 p-3 rounded-lg relative group">
@@ -616,6 +659,11 @@
                     <a href="https://www.windy.com/" target="_blank" class="card p-4 flex flex-col items-center justify-center text-stone-600">
                         <i class="fa-solid fa-wind text-3xl mb-2 text-muji-accent"></i>
                         <span class="font-bold">Windy</span>
+                    </a>
+                    <a href="javascript:void(0)" onclick="copyRoomLink()" class="card p-4 flex flex-col items-center justify-center text-stone-600">
+                      <i class="fa-solid fa-share-nodes text-3xl mb-2 text-muji-accent"></i>
+                      <span class="font-bold">分享同步連結</span>
+                      <span class="text-xs text-gray-400 mt-1">讓家人一鍵加入同房間</span>
                     </a>
                 </div>
 
@@ -646,6 +694,15 @@
                 </div>
             `;
         }
+
+        function copyRoomLink() {
+          const room = window.__ROOM_ID || localStorage.getItem("roomId");
+          const url = `${location.origin}${location.pathname}?room=${encodeURIComponent(room)}`;
+          navigator.clipboard?.writeText(url)
+            .then(() => alert("已複製分享連結，直接貼給家人即可"))
+            .catch(() => prompt("複製失敗，請手動複製：", url));
+        }
+
 
         // --- ACTION HANDLERS ---
         
@@ -714,21 +771,21 @@
                 note: document.getElementById('food-note').value,
                 eaten: false
             };
-            tripData.food.unshift(item);
+            window.tripData.food.unshift(item);
             saveData('food');
             closeModal();
             renderView();
         }
 
         function toggleFoodEaten(idx) {
-            tripData.food[idx].eaten = !tripData.food[idx].eaten;
+            window.tripData.food[idx].eaten = !window.tripData.food[idx].eaten;
             saveData('food');
             renderView();
         }
 
         function deleteFood(idx) {
             if(confirm('確定刪除?')) {
-                tripData.food.splice(idx, 1);
+                window.tripData.food.splice(idx, 1);
                 saveData('food');
                 renderView();
             }
@@ -736,9 +793,9 @@
 
         // Add Food to Plan
         function openAddToPlanFromFood(foodIdx) {
-            const food = tripData.food[foodIdx];
+            const food = window.tripData.food[foodIdx];
             let options = '';
-            tripData.plan.forEach((day, idx) => {
+            window.tripData.plan.forEach((day, idx) => {
                 options += `<option value="${idx}">${day.date} (${day.title.split('：')[1]})</option>`;
             });
 
@@ -765,7 +822,7 @@
         function executeAddToPlan(foodIdx) {
             const dayIdx = document.getElementById('plan-day-select').value;
             const time = document.getElementById('plan-time-select').value;
-            const food = tripData.food[foodIdx];
+            const food = window.tripData.food[foodIdx];
 
             const newItem = {
                 time: time,
@@ -776,7 +833,7 @@
                 done: false
             };
 
-            tripData.plan[dayIdx].items.push(newItem);
+            window.tripData.plan[dayIdx].items.push(newItem);
             // Simple sort by time logic (Morning < Noon < Afternoon < Evening) - Optional, just append for now
             saveData('plan');
             closeModal();
@@ -815,7 +872,7 @@
                 done: false
             };
             
-            tripData.plan[dayIdx].items.push(newItem);
+            window.tripData.plan[dayIdx].items.push(newItem);
             saveData('plan');
             closeModal();
             renderView();
@@ -823,7 +880,7 @@
 
         function deletePlanItem(dayIdx, itemIdx) {
             if(confirm('確定移除此行程?')) {
-                tripData.plan[dayIdx].items.splice(itemIdx, 1);
+                window.tripData.plan[dayIdx].items.splice(itemIdx, 1);
                 saveData('plan');
                 renderView();
             }
@@ -831,12 +888,28 @@
 
         // Wallet Logic
         let currentImgData = null;
+        const MAX_LOCAL_IMAGE_BYTES = 400 * 1024;
+
+        
         function handleImagePreview(input) {
-            if (input.files && input.files[0]) {
+            try {
+                if (!input.files || !input.files[0]) return;
+                const file = input.files[0];
+                
+                // 1) 原始檔案大小先擋
+                if (file.size > MAX_LOCAL_IMAGE_BYTES) {
+                  currentImgData = null;
+                  input.value = ""; // 清掉選檔
+                  document.getElementById('img-preview-area').classList.add('hidden');
+                  alert("照片請留在手機上觀賞就好，請勿存照片上來。");
+                  return;
+                }
+              
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const img = new Image();
                     img.src = e.target.result;
+                    
                     img.onload = function() {
                         const canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
@@ -851,11 +924,30 @@
                         canvas.width = width;
                         canvas.height = height;
                         ctx.drawImage(img, 0, 0, width, height);
-                        currentImgData = canvas.toDataURL('image/jpeg', 0.6); // Compress
+
+                        // 2) 壓縮後再產 base64
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                        
+                        // 3) 壓縮後的 base64 也可以再估算一次大小（更準）
+                        const approxBytes = Math.ceil((dataUrl.length - "data:image/jpeg;base64,".length) * 3 / 4);
+                        if (approxBytes > MAX_LOCAL_IMAGE_BYTES) {
+                          currentImgData = null;
+                          input.value = "";
+                          document.getElementById('img-preview-area').classList.add('hidden');
+                          alert("照片請留在手機上觀賞就好，請勿存照片上來。");
+                          return;
+                        }
+                        currentImgData = dataUrl;
                         document.getElementById('img-preview-area').classList.remove('hidden');
-                    }
-                }
-                reader.readAsDataURL(input.files[0]);
+                      };
+                  };
+
+                reader.readAsDataURL(file);
+            } catch (err) {
+                currentImgData = null;
+                input.value = "";
+                document.getElementById('img-preview-area').classList.add('hidden');
+                alert("照片處理失敗，建議不要上傳照片，留在手機上觀賞即可。");
             }
         }
 
@@ -869,19 +961,33 @@
             const now = new Date();
             const dateStr = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`;
 
-            tripData.wallet.entries.push({
-                name, amount, cat, date: dateStr, img: currentImgData
+            const id = (crypto?.randomUUID?.() ?? (Date.now() + "-" + Math.random().toString(16).slice(2)));
+
+            window.tripData.wallet.entries.push({
+                id,
+                name, amount, cat, 
+                date: dateStr, 
+                img: currentImgData
             });
             
             // Reset
             currentImgData = null;
+            document.getElementById('exp-name').value = "";
+            document.getElementById('exp-amount').value = "";
+            
+            const imgInput = document.getElementById('exp-img');
+            if (imgInput) imgInput.value = ""; // 有些瀏覽器要這樣才能清掉選檔
+
+            const preview = document.getElementById('img-preview-area');
+            if (preview) preview.classList.add('hidden');
+            
             saveData('wallet');
             renderView();
         }
 
         function deleteExpense(idx) {
             if(confirm('刪除此筆紀錄?')) {
-                tripData.wallet.entries.splice(idx, 1);
+                window.tripData.wallet.entries.splice(idx, 1);
                 saveData('wallet');
                 renderView();
             }
@@ -894,6 +1000,8 @@
         function runCalc() {
             const val = document.getElementById('calc-input').value;
             try {
+                if (val.length > 80) return document.getElementById('calc-result').innerText = 'Too long';
+                
                 // Basic validation allowing only numbers and operators
                 if(/^[0-9+\-*/().\s]*$/.test(val)) {
                     const res = new Function('return ' + val)();
@@ -913,7 +1021,7 @@
 
         // List Logic
         function toggleChecklist(idx) {
-            tripData.lists.checklist[idx].done = !tripData.lists.checklist[idx].done;
+            window.tripData.lists.checklist[idx].done = !window.tripData.lists.checklist[idx].done;
             saveData('lists');
             renderView();
         }
@@ -921,23 +1029,27 @@
         function addChecklist() {
             const val = document.getElementById('new-check-item').value;
             if(val) {
-                tripData.lists.checklist.push({text: val, done: false});
+                window.tripData.lists.checklist.push({text: val, done: false});
                 saveData('lists');
                 renderView();
+
+                document.getElementById('new-check-item').value = "";
             }
         }
 
         function addNote() {
             const val = document.getElementById('note-input').value;
             if(val) {
-                tripData.lists.notes.push({text: val});
+                window.tripData.lists.notes.push({text: val});
                 saveData('lists');
                 renderView();
+
+                document.getElementById('note-input').value = "";
             }
         }
 
         function deleteNote(idx) {
-            tripData.lists.notes.splice(idx, 1);
+            window.tripData.lists.notes.splice(idx, 1);
             saveData('lists');
             renderView();
         }
@@ -946,5 +1058,236 @@
         window.addEventListener('DOMContentLoaded', init);
 
     </script>
+
+    <script type="module">
+        const MAX_CLOUD_DOC_BYTES = 900 * 1024; // 先用 900KB 當安全線（避免逼近上限）
+        const encoder = new TextEncoder();
+        
+        function estimateBytes(obj) {
+            return encoder.encode(JSON.stringify(obj)).length;
+        }
+        
+        function stripImagesForCloud(tripData) {
+          // 保留其他資料，wallet 的 img 不上雲（只留在手機）
+          const cloned = JSON.parse(JSON.stringify(tripData));
+          if (cloned?.wallet?.entries?.length) {
+            cloned.wallet.entries = cloned.wallet.entries.map(({ img, ...rest }) => rest);
+          }
+          return cloned;
+        }
+
+        function buildLocalWalletImgMap(tripData) {
+          const map = new Map();
+          const entries = tripData?.wallet?.entries || [];
+          for (const e of entries) {
+            if (e?.id && e?.img) map.set(e.id, e.img);
+          }
+          return map;
+        }
+        
+        function restoreLocalWalletImages(tripData, imgMap) {
+          const entries = tripData?.wallet?.entries || [];
+          for (const e of entries) {
+            if (e?.id && imgMap.has(e.id)) e.img = imgMap.get(e.id);
+          }
+        }
+
+        window.__cloudReady = false;
+        
+        function setCloudStatus(state) {
+          const el = document.getElementById("cloud-status");
+          if (!el) return;
+        
+          const map = {
+            offline:  { cls: "bg-gray-200 text-gray-500", icon: "fa-solid fa-wifi", text: "離線" },
+            connecting:{ cls:"bg-gray-100 text-muji-sub", icon:"fa-solid fa-circle-notch fa-spin", text:"連線中" },
+            ready:    { cls:"bg-blue-50 text-blue-600", icon:"fa-solid fa-cloud", text:"已連線" },
+            syncing:  { cls:"bg-yellow-50 text-yellow-700", icon:"fa-solid fa-arrows-rotate fa-spin", text:"同步中" },
+            synced:   { cls:"bg-green-50 text-green-700", icon:"fa-solid fa-circle-check", text:"已同步" },
+            error:    { cls:"bg-red-50 text-red-600", icon:"fa-solid fa-triangle-exclamation", text:"同步失敗" },
+            disabled: { cls:"bg-gray-100 text-gray-400", icon:"fa-solid fa-cloud-slash", text:"未啟用" }
+          };
+        
+          const s = map[state] || map.connecting;
+          el.className = `text-[11px] px-2 py-1 rounded-full ${s.cls}`;
+          el.innerHTML = `<i class="${s.icon} mr-1"></i>${s.text}`;
+        }
+        
+        // 跟著網路狀態變
+        setCloudStatus(navigator.onLine ? "connecting" : "offline");
+        window.addEventListener("online",  () => setCloudStatus("connecting"));
+        window.addEventListener("offline", () => setCloudStatus("offline"));
+
+
+      // ======= Firebase Imports =======
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+      import { getAuth, signInAnonymously } 
+          from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+
+      // import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-analytics.js";
+      import {
+        getFirestore,
+        doc,
+        onSnapshot,
+        setDoc,
+        serverTimestamp
+      } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+        
+      // TODO: Add SDKs for Firebase products that you want to use
+      // https://firebase.google.com/docs/web/setup#available-libraries
+    
+      // Your web app's Firebase configuration
+      // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+      const firebaseConfig = {
+        apiKey: "AIzaSyDbtFcUlgnZeArsNJvj67bVPatuHhe0XEU",
+        authDomain: "cny-trip-2026.firebaseapp.com",
+        projectId: "cny-trip-2026",
+        storageBucket: "cny-trip-2026.firebasestorage.app",
+        messagingSenderId: "893600056741",
+        appId: "1:893600056741:web:1ce9fa98f84e3b22a4d44c",
+        measurementId: "G-G0S3WX1K7S"
+      };
+    
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+      // try {
+      //     await signInAnonymously(auth);
+      //     window.__cloudReady = true;
+      //     } catch (e) {
+      //     window.__cloudReady = false;
+      //     alert("雲端同步未啟用：請到 Firebase Console 開啟 Anonymous 登入。");
+      //     console.error(e);
+      //   }
+     
+      // ✅ 先定義 tripRef（避免 TDZ）
+      // const ROOM_ID = "CNY2026";
+      // const tripRef = doc(db, "trips", ROOM_ID);
+        
+        const params = new URLSearchParams(location.search);
+        let ROOM_ID = params.get("room") || localStorage.getItem("roomId");
+        
+        if (!ROOM_ID) {
+          ROOM_ID = crypto?.randomUUID?.() || (Date.now() + "-" + Math.random().toString(16).slice(2));
+          localStorage.setItem("roomId", ROOM_ID);
+        }
+
+        window.__ROOM_ID = ROOM_ID;
+        
+        // 再用 ROOM_ID 建 tripRef
+        const tripRef = doc(db, "trips", ROOM_ID);
+
+      let cloudSyncInFlight = false;
+      window.__pushTripToCloud = async () => {
+
+          // 先判斷狀態
+          if (!navigator.onLine) { setCloudStatus("offline"); return; }
+          if (!window.__cloudReady) { setCloudStatus("disabled"); return; }
+
+          // 避免並發寫入
+          if (cloudSyncInFlight) return;
+          cloudSyncInFlight = true;
+          
+          setCloudStatus("syncing");
+      
+          try {
+        
+            // 先做「不上傳照片」的版本（最穩）
+            const cloudData = stripImagesForCloud(window.tripData);
+
+            // 上雲前估算大小
+            const bytes = estimateBytes({ tripData: cloudData });
+            if (bytes > MAX_CLOUD_DOC_BYTES) {
+              // 你要的：超過就丟 exception + 提示訊息
+              throw new Error("TRIP_DOC_TOO_LARGE");
+            }
+          
+            // setDoc 可用 merge 避免整份覆蓋其他欄位 :contentReference[oaicite:7]{index=7}
+            await setDoc(
+                tripRef,
+                {tripData: cloudData, updatedAt: serverTimestamp() },
+                { merge: true }
+            );
+              
+            setCloudStatus("synced");
+                  
+            } catch (err) {
+                setCloudStatus("error");
+                // suppressNextRemote = false;
+                // if (err && err.message === "TRIP_DOC_TOO_LARGE") {
+                if (err?.message === "TRIP_DOC_TOO_LARGE") {
+                  alert("雲端同步容量已接近上限。照片請留在手機上觀賞就好，請勿存照片上來。");
+                  return;
+                }
+                // Firestore 真的回你 size 超限等錯誤時，也用同一句提示
+                //（不同版本錯誤字串可能不同，所以用保守的 fallback）
+                alert("同步到雲端失敗。照片請留在手機上觀賞就好，請勿存照片上來。");
+                console.error(err);
+              } finally {
+                cloudSyncInFlight = false;
+              }
+          };
+                
+      window.__cloudReady = false;
+        
+      (async () => {
+
+          setCloudStatus(navigator.onLine ? "connecting" : "offline");
+          // 1) 先登入
+          try {
+            await signInAnonymously(auth);
+            window.__cloudReady = true;
+          } catch (e) {
+            window.__cloudReady = false;
+            alert("雲端同步未啟用：請到 Firebase Console 開啟 Anonymous 登入。");
+            console.error(e);
+            return; // ❗登入失敗：不要往下啟動 onSnapshot
+          }
+
+          // 2) 登入成功後再啟動即時監聽
+          onSnapshot(tripRef, { includeMetadataChanges: true }, async (snap) => {
+            // 忽略本地 pending writes 的 snapshot（避免自己 setDoc 後立刻回彈）
+            if (snap.metadata.hasPendingWrites) return;
+        
+            // 第一次沒有文件：把目前本機資料先上傳建立一份
+            if (!snap.exists()) {
+              await window.__pushTripToCloud();
+              return;
+            }
+            const data = snap.data();
+            const remoteTrip = data?.tripData;
+            if (!remoteTrip) return;
+
+            // 先備份「本機照片映射」
+            const localImgMap = buildLocalWalletImgMap(window.tripData);
+        
+            // 用雲端資料覆蓋
+            window.tripData = remoteTrip;
+        
+            // 把本機照片補回來（只在本機保留）
+            restoreLocalWalletImages(window.tripData, localImgMap);
+        
+            // 同步到 localStorage（離線可用）
+            localStorage.setItem(window.DB_KEY_PLAN, JSON.stringify(window.tripData.plan));
+            localStorage.setItem(window.DB_KEY_WALLET, JSON.stringify(window.tripData.wallet));
+            localStorage.setItem(window.DB_KEY_LISTS, JSON.stringify(window.tripData.lists));
+            localStorage.setItem(window.DB_KEY_FOOD, JSON.stringify(window.tripData.food));
+        
+            // 重新渲染
+            if (typeof window.renderView === "function") window.renderView();
+            setCloudStatus("synced");
+          });
+        })();
+
+        
+      // const ROOM_ID = "CNY2026";  
+      // const tripRef = doc(db, "trips", ROOM_ID);
+    
+      let suppressNextRemote = false;
+    </script>
+
+    
 </body>
 </html>
