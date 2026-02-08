@@ -1215,6 +1215,8 @@
                   
             } catch (err) {
                 setCloudStatus("error");
+                console.error("[setDoc] ", err?.code, err?.message, err);
+              
                 // suppressNextRemote = false;
                 // if (err && err.message === "TRIP_DOC_TOO_LARGE") {
                 if (err?.message === "TRIP_DOC_TOO_LARGE") {
@@ -1223,7 +1225,7 @@
                 }
                 // Firestore 真的回你 size 超限等錯誤時，也用同一句提示
                 //（不同版本錯誤字串可能不同，所以用保守的 fallback）
-                alert("同步到雲端失敗。照片請留在手機上觀賞就好，請勿存照片上來。");
+                alert(`同步到雲端失敗：${err?.code || ""}\n${err?.message || err}`);
                 console.error(err);
               } finally {
                 cloudSyncInFlight = false;
@@ -1278,7 +1280,13 @@
             // 重新渲染
             if (typeof window.renderView === "function") window.renderView();
             setCloudStatus("synced");
-          });
+          },
+          (err) => {
+            setCloudStatus("error");
+            console.error("[onSnapshot] ", err?.code, err?.message, err);
+            alert(`雲端監聽失敗：${err?.code || ""}\n${err?.message || err}`);
+          }
+        );
         })();
 
         
